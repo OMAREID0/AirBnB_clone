@@ -1,36 +1,50 @@
 #!/usr/bin/python3
+"""
+BaseModel class for the AirBnb project
+"""
 from uuid import uuid4
 from datetime import datetime
-from models import storage
+import models
+from sqlalchemy.orm import declarative_base
+from sqlalchemy import Column, String, DateTime
 
-time_format = "%Y-%m-%dT%H:%M:%S.%f"
+time = "%Y-%m-%dT%H:%M:%S.%f"
+
+if models.storage_t == "db":
+    Base = declarative_base()
+else:
+    Base = object
 
 
 class BaseModel:
     """
-    BaseModel class represents the base model for all other classes in the project.
+    BaseModel class represents the base model
+    for all other classes in the project.
     """
+    id = Column(String(60), primary_key=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow)
 
     def __init__(self, *args, **kwargs):
-        """
-        Initializes a new instance of the BaseModel class.
-
-        Args:
-            *args: Variable length argument list.
-            **kwargs: Arbitrary keyword arguments.
-        """
+        """Initialization of the base model"""
         if kwargs:
             for key, value in kwargs.items():
-                if key == "__class__":
-                    continue
-                if key == "created_at" or key == "updated_at":
-                    value = datetime.strptime(value, time_format)
-                setattr(self, key, value)
+                if key != "__class__":
+                    setattr(self, key, value)
+            if kwargs.get("created_at", None) and type(self.created_at) is str:
+                self.created_at = datetime.strptime(kwargs["created_at"], time)
+            else:
+                self.created_at = datetime.utcnow()
+            if kwargs.get("updated_at", None) and type(self.updated_at) is str:
+                self.updated_at = datetime.strptime(kwargs["updated_at"], time)
+            else:
+                self.updated_at = datetime.utcnow()
+            if kwargs.get("id", None) is None:
+                self.id = str(uuid4())
         else:
             self.id = str(uuid4())
-            self.created_at = datetime.now()
+            self.created_at = datetime.utcnow()
             self.updated_at = self.created_at
-            storage.new(self)
 
     def __str__(self):
         """
@@ -45,21 +59,22 @@ class BaseModel:
         """
         Saves the BaseModel instance and updates the 'updated_at' attribute.
         """
-        self.updated_at = datetime.now()
-        storage.save()
+        self.updated_at = datetime.utcnow()
+        models.storage.new(self)
+        models.storage.save()
 
     def to_dict(self):
-        """
-        Converts the BaseModel instance to a dictionary representation.
+        """returns a dictionary containing all keys/values of the instance"""
+        new_dict = self.__dict__.copy()
+        if "created_at" in new_dict:
+            new_dict["created_at"] = new_dict["created_at"].strftime(time)
+        if "updated_at" in new_dict:
+            new_dict["updated_at"] = new_dict["updated_at"].strftime(time)
+        new_dict["__class__"] = self.__class__.__name__
+        if "_sa_instance_state" in new_dict:
+            del new_dict["_sa_instance_state"]
+        return new_dict
 
-        Returns:
-            dict: Dictionary representation of the BaseModel instance.
-        """
-        obj_dict = self.__dict__.copy()
-        obj_dict["__class__"] = self.__class__.__name__
-        if "created_at" in obj_dict:
-            obj_dict["created_at"] = obj_dict["created_at"].strftime(time_format)
-        if "updated_at" in obj_dict:
-            obj_dict["updated_at"] = obj_dict["updated_at"].strftime(time_format)
-
-        return obj_dict
+    def delete(self):
+        """delete the current instance from the storage"""
+        models.storage.delete(self)
