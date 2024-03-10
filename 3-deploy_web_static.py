@@ -9,7 +9,6 @@ from datetime import datetime
 from os.path import exists, isdir
 env.hosts = ['54.237.60.227', '3.83.238.41']
 
-
 def do_pack():
     """generates a tgz archive"""
     try:
